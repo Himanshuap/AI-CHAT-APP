@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat test</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 20px auto; }
+    #messages { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 8px; margin: 10px 0; }
+    #chat { display: none; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h3>Login</h3>
+    <input id="email" placeholder="email" />
+    <input id="password" type="password" placeholder="password" />
+    <button id="loginBtn">Login</button>
+    <p id="loginError" style="color:red"></p>
+  </div>
+
+  <div id="chat">
+    <h3 id="who"></h3>
+    <div id="messages"></div>
+    <input id="text" placeholder="Type a message" />
+    <button id="sendBtn">Send</button>
+    <p id="sendError" style="color:red"></p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket;
+    const $ = (id) => document.getElementById(id);
+
+    function addMessage(msg) {
+      const div = document.createElement('div');
+      div.textContent = `${msg.sender.name}: ${msg.text}`;
+      $('messages').appendChild(div);
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+
+    $('loginBtn').onclick = async () => {
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $('email').value, password: $('password').value }),
+      });
+      const data = await res.json();
+      if (!res.ok) return ($('loginError').textContent = data.error);
+
+      const token = data.token;
+      $('login').style.display = 'none';
+      $('chat').style.display = 'block';
+      $('who').textContent = `Logged in as ${data.user.name}`;
+
+      const history = await fetch('/messages', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((r) => r.json());
+      history.reverse().forEach(addMessage);
+
+      socket = io({ auth: { token } });
+      socket.on('message:new', addMessage);
+    };
+
+    $('sendBtn').onclick = () => {
+      socket.emit('message:send', { text: $('text').value }, (res) => {
+        if (res.error) $('sendError').textContent = res.error;
+        else { $('text').value = ''; $('sendError').textContent = ''; }
+      });
+    };
+  </script>
+</body>
+</html>
