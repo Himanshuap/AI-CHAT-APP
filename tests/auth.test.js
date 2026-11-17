@@ -1,5 +1,7 @@
-require('dotenv').config();
-require('dns').setServers(['8.8.8.8', '1.1.1.1']);
+require('dotenv').config({ quiet: true });
+if (process.env.MONGO_URL_TEST?.startsWith('mongodb+srv')) {
+  require('dns').setServers(['8.8.8.8', '1.1.1.1']);
+}
 const request = require('supertest');
 const mongoose = require('mongoose');
 const app = require('../src/app');
@@ -7,7 +9,7 @@ const app = require('../src/app');
 jest.setTimeout(30000);
 
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGO_URL_TEST);
+  await mongoose.connect(process.env.MONGO_URL_TEST, { serverSelectionTimeoutMS: 5000 });
 });
 
 afterEach(async () => {
